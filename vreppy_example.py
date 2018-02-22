@@ -6,7 +6,7 @@ import os
 import vreppy as vp
 
 #%%
-path_to_pxp = os.getcwd() + '/models/phantomXPincher.ttm'
+path_to_pxp = os.getcwd() + '/models/PhantomXPincher.ttm'
 path_to_scene = os.getcwd() + '/scenes/emptyScene.ttt'
 
 joint_names = ['PhantomXPincher_joint1', 'PhantomXPincher_joint2', 
@@ -28,11 +28,8 @@ clientID = vp.connectToRemoteAPIServer(port_num = 19997, is_sync = True)
 
 vp.loadVREPScene(clientID, path_to_scene)
 
-pxp_base_handle = vp.loadVREPModel(clientID, path_to_pxp)
-xyz = vp.getAbsolutePosition(clientID, pxp_base_handle)
-position = (0, -0.5, xyz[2])
-orientation = (vp.d2r(90), vp.d2r(0), vp.d2r(90))
-vp.placeModelInScene(clientID, pxp_base_handle, position, orientation)
+pxp_base_handle = vp.loadModelIntoScene(clientID, path_to_pxp, 
+                                        [0, -0.5, None], [90, 0, 90])
 
 joint_handles = vp.getAllJointHandles(clientID, joint_names)
 

@@ -40,7 +40,7 @@ def startVREP(port_num, headless = False, wait = False):
     
     if wait:
         import time
-        print 'Waiting for V-REP ...'
+        print ('Waiting for V-REP ...')
         time.sleep(10)
 
 #%%
@@ -55,8 +55,8 @@ def connectToRemoteAPIServer(port_num = 19997, is_sync = True):
                               commThreadCycleInMs = 5)
     if clientID == -1:
         raise Exception('FAIL: Connection to remote API server failed')        
-    else:
-        print 'SUCCESS: Connected to remote API server'
+    #else:
+        #print ('SUCCESS: Connected to remote API server')
     
     if is_sync: 
         vrep.simxSynchronous(clientID, True)
@@ -75,7 +75,7 @@ def setSimulationTimeStep(clientID, dt = 0.01):
 def startSimulation(clientID):
     
     vrep.simxStartSimulation(clientID, blocking)
-    print 'SUCCESS: Simulation started'
+    #print ('SUCCESS: Simulation started')
 
 #%%
 def syncSpinOnce(clientID):
@@ -86,14 +86,19 @@ def syncSpinOnce(clientID):
 def stopSimulation(clientID):
 
     vrep.simxStopSimulation(clientID, blocking)
-    print 'SUCCESS: Simulation stopped'
+    #print ('SUCCESS: Simulation stopped')
 
 #%%
 def closeConnection(clientID):
 
     vrep.simxGetPingTime(clientID)
     vrep.simxFinish(clientID)
-    print 'SUCCESS: Connection closed'
+    #print ('SUCCESS: Connection closed')
+
+#%%
+def performBlockingOp(clientID):
+    
+    vrep.simxGetPingTime(clientID)
 
 #%%
 def loadVREPScene(clientID, path_to_scene):
@@ -104,8 +109,8 @@ def loadVREPScene(clientID, path_to_scene):
                              blocking)
     if ret != return_ok:
         raise Exception('FAIL: Scene failed to load')
-    else:
-        print 'SUCCESS: Scene loaded'
+    #else:
+        #print ('SUCCESS: Scene loaded')
 
 #%%
 def loadVREPModel(clientID, path_to_model):
@@ -116,8 +121,8 @@ def loadVREPModel(clientID, path_to_model):
                                           blocking)
     if ret != return_ok:
         raise Exception('FAIL: Model failed to load')
-    else:
-        print 'SUCCESS: Model loaded'
+    #else:
+        #print ('SUCCESS: Model loaded')
     
     return base_handle
 
@@ -146,7 +151,42 @@ def placeModelInScene(clientID, base_handle, position, orientation,
     if ret != return_ok and ret != novalue:
         raise Exception('FAIL: Unable to orient model')
     
-    print 'SUCCESS: Model placed in scene'
+    #print ('SUCCESS: Model placed in scene')
+
+#%%
+def loadModelIntoScene(clientID, path_to_model, position, orientation,
+                       frame = 'absolute'):
+    
+    if frame == 'absolute':
+        frame = -1
+    
+    px, py, pz = position
+    ox, oy, oz = orientation
+    
+    base_handle = loadVREPModel(clientID, path_to_model)
+    
+    if pz == None:
+        xyz = getAbsolutePosition(clientID, base_handle)        
+        pz = xyz[2]
+    
+    position = (px, py, pz)
+    orientation = (d2r(ox), d2r(oy), d2r(oz))
+    
+    placeModelInScene(clientID, base_handle, position, orientation, frame)
+    
+    return base_handle
+    
+
+#%%
+def getObjectHandle(clientID, name):
+    
+    ret, handle = vrep.simxGetObjectHandle(clientID, 
+                                           name, 
+                                           blocking)
+    if ret != return_ok:
+        raise Exception('FAIL: Object ' + name + ' does not exist')
+    
+    return handle
 
 #%%    
 def getObjectParameter(clientID, handle, parameter_code, is_float = True):
@@ -167,6 +207,22 @@ def getObjectParameter(clientID, handle, parameter_code, is_float = True):
     return value
 
 #%%
+def setObjectParameter(clientID, handle, parameter_code, set_val, is_float = True):
+    
+    if is_float:
+        vrep.simxSetObjectFloatParameter(clientID, 
+                                         handle, 
+                                         parameter_code,
+                                         set_val,
+                                         oneshot)
+    else:
+        vrep.simxSetObjectIntParameter(clientID, 
+                                       handle, 
+                                       parameter_code,
+                                       set_val,
+                                       oneshot)
+
+#%%
 def getAbsolutePosition(clientID, handle):
     
     ret, xyz = vrep.simxGetObjectPosition(clientID, 
@@ -181,11 +237,26 @@ def getAbsolutePosition(clientID, handle):
 #%%
 def getJointPosition(clientID, joint_handle):
     
-    ret, get_joint_val = vrep.simxGetJointPosition(clientID, 
-                                                   joint_handle, 
-                                                   blocking)
+    if joint_handle == None:
+        get_joint_val = None
+        ret = return_ok
+    else:
+        ret, get_joint_val = vrep.simxGetJointPosition(clientID, 
+                                                       joint_handle, 
+                                                       blocking)
     if ret != return_ok: 
         raise Exception('FAIL: GetJointPosition failed')
+    
+    return get_joint_val
+
+#%%
+def getJointForce(clientID, joint_handle):
+    
+    ret, get_joint_val = vrep.simxGetJointForce(clientID, 
+                                                joint_handle, 
+                                                blocking)
+    if ret != return_ok: 
+        raise Exception('FAIL: GetJointForce failed')
     
     return get_joint_val
 
@@ -198,6 +269,22 @@ def setJointPosition(clientID, joint_handle, set_joint_val):
                                     oneshot)
 
 #%%
+def setJointVelocity(clientID, joint_handle, set_joint_val):
+    
+    vrep.simxSetJointTargetVelocity(clientID, 
+                                    joint_handle, 
+                                    set_joint_val, 
+                                    oneshot)
+
+#%%
+def setJointForce(clientID, joint_handle, set_joint_val):
+    
+    vrep.simxSetJointForce(clientID, 
+                           joint_handle, 
+                           set_joint_val, 
+                           oneshot)
+
+#%%
 def getAllJointHandles(clientID, joint_names):
     
     joint_handles = []
@@ -206,10 +293,29 @@ def getAllJointHandles(clientID, joint_names):
                                                name, 
                                                blocking)
         if ret != return_ok:
-            raise Exception('FAIL: Joint '+ name + ' does not exist')
+            raise Exception('FAIL: Joint ' + name + ' does not exist')
         else:
             joint_handles.append(handle)
     
     return joint_handles
+
+#%%
+def getAllJointPositions(clientID, joint_handles):
+    
+    joint_poses = []
+    for handle in joint_handles:
+        if handle != None:
+            joint_poses.append(getJointPosition(clientID, handle))
+        else:
+            joint_poses.append(None)
+            
+    return joint_poses
+
+#%%
+def setJointPID(clientID, handle, P, I, D):
+    
+    setObjectParameter(clientID, handle, 2002, P, True)
+    setObjectParameter(clientID, handle, 2003, I, True)
+    setObjectParameter(clientID, handle, 2004, D, True)
 
 #%%
